@@ -1,0 +1,47 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    volumes:
+      - ./server:/app/server
+    depends_on:
+      - ollama
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      - backend
+  ollama:
+    build:
+      context: .
+      dockerfile: docker/ollama/Dockerfile
+    ports:
+      - 11434:11434
+    container_name: ollama
+    pull_policy: always
+    tty: true
+    restart: always
+    volumes:
+      - ./ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0
+    # GPU support
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu

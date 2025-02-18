@@ -7,4 +7,12 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  server: {
+    host: true, // Expose to all network interfaces
+    port: 5173,
+    strictPort: true, // Fail if port is already in use
+    watch: {
+      usePolling: true, // Enable polling for Docker volumes
+    }
+  }
 });

@@ -3,10 +3,12 @@ import { Languages, Send, AlertCircle } from 'lucide-react';
 
 function App() {
   const [text, setText] = useState('');
+  const [sourceLanguage, setSourceLanguage] = useState('English');
   const [targetLanguage, setTargetLanguage] = useState('Spanish');
   const [translation, setTranslation] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
 
   const handleTranslate = async () => {
     if (!text) return;
@@ -21,7 +23,7 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text, targetLanguage }),
+        body: JSON.stringify({ text, targetLanguage, sourceLanguage }),
       });
       
       const data = await response.json();
@@ -58,6 +60,26 @@ function App() {
           
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
+              Source Language
+            </label>
+            <select
+              value={sourceLanguage}
+              onChange={(e) => setSourceLanguage(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option>English</option>
+              <option>Spanish</option>
+              <option>French</option>
+              <option>German</option>
+              <option>Italian</option>
+              <option>Portuguese</option>
+              <option>Chinese</option>
+              <option>Japanese</option>
+              <option>Korean</option>
+            </select>
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Target Language
             </label>
             <select
@@ -65,6 +87,7 @@ function App() {
               onChange={(e) => setTargetLanguage(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
+              <option>English</option>
               <option>Spanish</option>
               <option>French</option>
               <option>German</option>
