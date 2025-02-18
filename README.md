@@ -11,3 +11,8 @@ To up the app
 ```
 make du
 ```
+
+To destroy the app
+```
+make dd
+```
