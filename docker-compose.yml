@@ -5,10 +5,10 @@ services:
       dockerfile: docker/backend/Dockerfile
     ports:
       - "3000:3000"
-    environment:
-      - PORT=3000
+    env_file:
+      - .env
     volumes:
-      - ./server:/app/server
+      - ./code:/app
     depends_on:
       - ollama
   frontend:
@@ -18,7 +18,7 @@ services:
     ports:
       - "5173:5173"
     volumes:
-      - ./src:/app/src
+      - ./code:/app
     depends_on:
       - backend
   ollama:

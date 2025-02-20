@@ -7,6 +7,7 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+const llmName = process.env.LLM_NAME || 'llama3'; // Default to 'llama3' if LLM_NAME is not set
 
 app.use(cors());
 app.use(express.json());
@@ -34,7 +35,7 @@ app.post('/api/translate', async (req, res) => {
     }
 
     const response = await axios.post('http://ollama:11434/api/chat', {
-      model: "llama3",
+      model: llmName,
       messages: [
         {
           role: "system",

@@ -2,12 +2,12 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY ./docker/backend/entrypoint.sh /usr/local/bin/
 
-RUN npm install
-
-COPY . .
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 3000
 
-CMD ["npm", "run", "server"]
+ENTRYPOINT ["entrypoint.sh"]
+
+CMD ["npm", "run", "dev:server"]

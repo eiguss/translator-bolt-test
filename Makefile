@@ -25,6 +25,10 @@ llm-p:
 llm-r:
 	docker exec -it ollama ollama rm ${LLM_NAME}
 
+# Show the LLM version
+llm-v:
+	docker exec -it ollama ollama -v
+
 # Build the Docker Compose services
 db:
 	docker-compose build
