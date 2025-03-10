@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soccer Ball Rebound Visualization</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .control-row label {
+            width: 150px;
+        }
+        .control-row input {
+            flex: 1;
+        }
+        .control-row .value {
+            width: 60px;
+            text-align: right;
+        }
+        .visualization {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        svg {
+            background-color: #f9f9f9;
+            width: 100%;
+            height: 600px;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 3px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .description {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Soccer Ball Rebound Visualization</h1>
+        
+        <div class="description">
+            <p>This visualization shows the trajectory of a soccer ball rebounding off an angled plank. 
+            The incoming shot travels from left to right at ground level, hitting the plank at a height of 0.5 meters. 
+            The ball then rebounds in the opposite direction (right to left), with its trajectory influenced by the plank angle.</p>
+            <p>The dotted horizontal line represents the 2-meter height mark (above head height for jumping).</p>
+            <p>Adjust the sliders below to see how different parameters affect the ball's trajectory.</p>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <div class="control-row">
+                    <label for="distance">Shooting Distance (m):</label>
+                    <input type="range" id="distance" min="5" max="20" step="1" value="10">
+                    <span class="value" id="distance-value">10</span>
+                </div>
+                <div class="control-row">
+                    <label for="speed">Ball Speed (km/h):</label>
+                    <input type="range" id="speed" min="20" max="100" step="1" value="50">
+                    <span class="value" id="speed-value">50</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <div class="control-row">
+                    <label for="angle">Plank Angle (degrees):</label>
+                    <input type="range" id="angle" min="10" max="75" step="1" value="45">
+                    <span class="value" id="angle-value">45</span>
+                </div>
+                <div class="control-row">
+                    <label for="gravity">Gravity (m/s²):</label>
+                    <input type="range" id="gravity" min="9.5" max="9.9" step="0.1" value="9.8" disabled>
+                    <span class="value" id="gravity-value">9.8</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="visualization">
+            <svg id="visualization-svg" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: blue;"></div>
+                <span>Incoming Trajectory</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: red;"></div>
+                <span>Rebound Trajectory</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: black; border-top: 2px dashed;"></div>
+                <span>2m Height (Above Head)</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Constants and conversion factors
+        const PIXELS_PER_METER = 50; // Scale factor for visualization
+        const PLANK_HEIGHT = 1; // Height of the plank in meters
+        const IMPACT_HEIGHT = 0.5; // Height at which the ball hits the plank
+        const HEAD_HEIGHT = 2; // Target height for the ball to pass over (in meters)
+        
+        // DOM elements
+        const svg = document.getElementById('visualization-svg');
+        const distanceSlider = document.getElementById('distance');
+        const speedSlider = document.getElementById('speed');
+        const angleSlider = document.getElementById('angle');
+        const gravitySlider = document.getElementById('gravity');
+        
+        const distanceValue = document.getElementById('distance-value');
+        const speedValue = document.getElementById('speed-value');
+        const angleValue = document.getElementById('angle-value');
+        const gravityValue = document.getElementById('gravity-value');
+        
+        // Update displayed values when sliders change
+        distanceSlider.addEventListener('input', () => {
+            distanceValue.textContent = distanceSlider.value;
+            updateVisualization();
+        });
+        
+        speedSlider.addEventListener('input', () => {
+            speedValue.textContent = speedSlider.value;
+            updateVisualization();
+        });
+        
+        angleSlider.addEventListener('input', () => {
+            angleValue.textContent = angleSlider.value;
+            updateVisualization();
+        });
+        
+        gravitySlider.addEventListener('input', () => {
+            gravityValue.textContent = gravitySlider.value;
+            updateVisualization();
+        });
+        
+        // Function to calculate ball trajectory
+        function calculateTrajectory(params) {
+            const { distance, speed, angle, gravity, isRebound } = params;
+            
+            // Convert speed from km/h to m/s
+            const speedMS = speed * (1000 / 3600);
+            
+            // Convert angle from degrees to radians
+            const angleRad = (angle * Math.PI) / 180;
+            
+            // Initial velocity components
+            let vx, vy;
+            
+            if (isRebound) {
+                // For rebound, apply the reflection based on the plank angle
+                vx = -speedMS * Math.cos(2 * angleRad);
+                vy = speedMS * Math.sin(2 * angleRad);
+            } else {
+                // For incoming trajectory (straight line to impact point)
+                vx = speedMS;
+                vy = 0; // No vertical component for incoming trajectory
+            }
+            
+            // Calculate trajectory points
+            const points = [];
+            const dt = 0.02; // Time step in seconds
+            let t = 0;
+            let x, y;
+            
+            if (isRebound) {
+                // Starting point for rebound is the impact point
+                x = distance;
+                y = IMPACT_HEIGHT;
+                
+                // Calculate rebound trajectory with gravity
+                while (x > 0 && y >= 0) {
+                    points.push({ x, y });
+                    x += vx * dt;
+                    y += vy * dt - 0.5 * gravity * dt * dt;
+                    vy -= gravity * dt;
+                    t += dt;
+                }
+                
+                // Add one more point at ground level for complete trajectory
+                if (points.length > 0 && y < 0) {
+                    // Interpolate to find exact point where y = 0
+                    const lastPoint = points[points.length - 1];
+                    const ratio = lastPoint.y / (lastPoint.y - y);
+                    const groundX = lastPoint.x + ratio * (x - lastPoint.x);
+                    points.push({ x: groundX, y: 0 });
+                }
+            } else {
+                // Incoming trajectory (straight line)
+                x = 0;
+                y = 0; // Starting at ground level
+                
+                // Simple straight line to impact point
+                points.push({ x, y });
+                points.push({ x: distance, y: IMPACT_HEIGHT });
+            }
+            
+            return points;
+        }
+        
+        // Function to draw the visualization
+        function updateVisualization() {
+            // Clear the SVG
+            svg.innerHTML = '';
+            
+            // Get current parameter values
+            const distance = parseFloat(distanceSlider.value);
+            const speed = parseFloat(speedSlider.value);
+            const angle = parseFloat(angleSlider.value);
+            const gravity = parseFloat(gravitySlider.value);
+            
+            // Calculate trajectories
+            const incomingTrajectory = calculateTrajectory({
+                distance,
+                speed,
+                angle,
+                gravity,
+                isRebound: false
+            });
+            
+            const reboundTrajectory = calculateTrajectory({
+                distance,
+                speed,
+                angle,
+                gravity,
+                isRebound: true
+            });
+            
+            // Set up the coordinate system (origin at bottom left)
+            const svgWidth = 1200;
+            const svgHeight = 600;
+            const margin = 50;
+            const originX = margin;
+            const originY = svgHeight - margin;
+            
+            // Calculate maximum height for scaling
+            let maxHeight = HEAD_HEIGHT + 1; // At least 1m above head height
+            reboundTrajectory.forEach(point => {
+                if (point.y > maxHeight) maxHeight = point.y;
+            });
+            
+            // Scale factors
+            const scaleX = (svgWidth - 2 * margin) / (distance + 5); // Add some space after plank
+            const scaleY = (svgHeight - 2 * margin) / maxHeight;
+            
+            // Draw ground
+            const ground = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            ground.setAttribute('x1', originX);
+            ground.setAttribute('y1', originY);
+            ground.setAttribute('x2', originX + (distance + 5) * scaleX);
+            ground.setAttribute('y2', originY);
+            ground.setAttribute('stroke', 'black');
+            ground.setAttribute('stroke-width', '2');
+            svg.appendChild(ground);
+            
+            // Draw head height reference line
+            const headHeightLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            headHeightLine.setAttribute('x1', originX);
+            headHeightLine.setAttribute('y1', originY - HEAD_HEIGHT * scaleY);
+            headHeightLine.setAttribute('x2', originX + (distance + 5) * scaleX);
+            headHeightLine.setAttribute('y2', originY - HEAD_HEIGHT * scaleY);
+            headHeightLine.setAttribute('stroke', 'black');
+            headHeightLine.setAttribute('stroke-width', '1');
+            headHeightLine.setAttribute('stroke-dasharray', '5,5');
+            svg.appendChild(headHeightLine);
+            
+            // Add head height label
+            const headHeightLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            headHeightLabel.setAttribute('x', originX - 5);
+            headHeightLabel.setAttribute('y', originY - HEAD_HEIGHT * scaleY + 5);
+            headHeightLabel.setAttribute('text-anchor', 'end');
+            headHeightLabel.setAttribute('font-size', '12');
+            headHeightLabel.textContent = `${HEAD_HEIGHT}m`;
+            svg.appendChild(headHeightLabel);
+            
+            // Draw plank
+            const plankX = originX + distance * scaleX;
+            const plankBottomY = originY;
+            const plankTopY = originY - PLANK_HEIGHT * scaleY;
+            
+            // Calculate plank endpoints based on angle
+            const angleRad = (angle * Math.PI) / 180;
+            const plankLength = PLANK_HEIGHT / Math.cos(angleRad);
+            const plankDx = PLANK_HEIGHT * Math.tan(angleRad);
+            
+            const plank = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            plank.setAttribute('x1', plankX);
+            plank.setAttribute('y1', plankBottomY);
+            plank.setAttribute('x2', plankX + plankDx * scaleX);
+            plank.setAttribute('y2', plankTopY);
+            plank.setAttribute('stroke', 'brown');
+            plank.setAttribute('stroke-width', '5');
+            svg.appendChild(plank);
+            
+            // Draw incoming trajectory
+            const incomingPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            let incomingPathD = '';
+            
+            incomingTrajectory.forEach((point, index) => {
+                const x = originX + point.x * scaleX;
+                const y = originY - point.y * scaleY;
+                
+                if (index === 0) {
+                    incomingPathD += `M ${x} ${y}`;
+                } else {
+                    incomingPathD += ` L ${x} ${y}`;
+                }
+            });
+            
+            incomingPath.setAttribute('d', incomingPathD);
+            incomingPath.setAttribute('stroke', 'blue');
+            incomingPath.setAttribute('stroke-width', '3');
+            incomingPath.setAttribute('fill', 'none');
+            svg.appendChild(incomingPath);
+            
+            // Draw rebound trajectory
+            const reboundPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            let reboundPathD = '';
+            
+            reboundTrajectory.forEach((point, index) => {
+                const x = originX + point.x * scaleX;
+                const y = originY - point.y * scaleY;
+                
+                if (index === 0) {
+                    reboundPathD += `M ${x} ${y}`;
+                } else {
+                    reboundPathD += ` L ${x} ${y}`;
+                }
+            });
+            
+            reboundPath.setAttribute('d', reboundPathD);
+            reboundPath.setAttribute('stroke', 'red');
+            reboundPath.setAttribute('stroke-width', '3');
+            reboundPath.setAttribute('fill', 'none');
+            svg.appendChild(reboundPath);
+            
+            // Draw ball at impact point
+            const impactBall = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            impactBall.setAttribute('cx', plankX);
+            impactBall.setAttribute('cy', originY - IMPACT_HEIGHT * scaleY);
+            impactBall.setAttribute('r', '5');
+            impactBall.setAttribute('fill', 'black');
+            svg.appendChild(impactBall);
+            
+            // Add axes labels and grid
+            // X-axis labels
+            for (let i = 0; i <= distance + 5; i += 5) {
+                const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                xLabel.setAttribute('x', originX + i * scaleX);
+                xLabel.setAttribute('y', originY + 20);
+                xLabel.setAttribute('text-anchor', 'middle');
+                xLabel.setAttribute('font-size', '12');
+                xLabel.textContent = `${i}m`;
+                svg.appendChild(xLabel);
+                
+                // Vertical grid line
+                if (i > 0) {
+                    const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    gridLine.setAttribute('x1', originX + i * scaleX);
+                    gridLine.setAttribute('y1', originY);
+                    gridLine.setAttribute('x2', originX + i * scaleX);
+                    gridLine.setAttribute('y2', margin);
+                    gridLine.setAttribute('stroke', '#ddd');
+                    gridLine.setAttribute('stroke-width', '1');
+                    gridLine.setAttribute('stroke-dasharray', '3,3');
+                    svg.appendChild(gridLine);
+                }
+            }
+            
+            // Y-axis labels
+            for (let i = 0; i <= Math.ceil(maxHeight); i++) {
+                const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                yLabel.setAttribute('x', originX - 10);
+                yLabel.setAttribute('y', originY - i * scaleY + 5);
+                yLabel.setAttribute('text-anchor', 'end');
+                yLabel.setAttribute('font-size', '12');
+                yLabel.textContent = `${i}m`;
+                svg.appendChild(yLabel);
+                
+                // Horizontal grid line
+                if (i > 0) {
+                    const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    gridLine.setAttribute('x1', originX);
+                    gridLine.setAttribute('y1', originY - i * scaleY);
+                    gridLine.setAttribute('x2', originX + (distance + 5) * scaleX);
+                    gridLine.setAttribute('y2', originY - i * scaleY);
+                    gridLine.setAttribute('stroke', '#ddd');
+                    gridLine.setAttribute('stroke-width', '1');
+                    gridLine.setAttribute('stroke-dasharray', '3,3');
+                    svg.appendChild(gridLine);
+                }
+            }
+            
+            // Add axis labels
+            const xAxisLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            xAxisLabel.setAttribute('x', originX + (distance + 5) * scaleX / 2);
+            xAxisLabel.setAttribute('y', originY + 40);
+            xAxisLabel.setAttribute('text-anchor', 'middle');
+            xAxisLabel.setAttribute('font-size', '14');
+            xAxisLabel.textContent = 'Distance (m)';
+            svg.appendChild(xAxisLabel);
+            
+            const yAxisLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            yAxisLabel.setAttribute('x', originX - 35);
+            yAxisLabel.setAttribute('y', originY - maxHeight * scaleY / 2);
+            yAxisLabel.setAttribute('text-anchor', 'middle');
+            yAxisLabel.setAttribute('font-size', '14');
+            yAxisLabel.setAttribute('transform', `rotate(-90, ${originX - 35}, ${originY - maxHeight * scaleY / 2})`);
+            yAxisLabel.textContent = 'Height (m)';
+            svg.appendChild(yAxisLabel);
+            
+            // Add max height indicator for rebound
+            let maxReboundHeight = 0;
+            let maxReboundX = 0;
+            
+            reboundTrajectory.forEach(point => {
+                if (point.y > maxReboundHeight) {
+                    maxReboundHeight = point.y;
+                    maxReboundX = point.x;
+                }
+            });
+            
+            if (maxReboundHeight > 0) {
+                const maxHeightMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                maxHeightMarker.setAttribute('cx', originX + maxReboundX * scaleX);
+                maxHeightMarker.setAttribute('cy', originY - maxReboundHeight * scaleY);
+                maxHeightMarker.setAttribute('r', '3');
+                maxHeightMarker.setAttribute('fill', 'red');
+                svg.appendChild(maxHeightMarker);
+                
+                const maxHeightLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                maxHeightLabel.setAttribute('x', originX + maxReboundX * scaleX);
+                maxHeightLabel.setAttribute('y', originY - maxReboundHeight * scaleY - 10);
+                maxHeightLabel.setAttribute('text-anchor', 'middle');
+                maxHeightLabel.setAttribute('font-size', '12');
+                maxHeightLabel.textContent = `${maxReboundHeight.toFixed(2)}m`;
+                svg.appendChild(maxHeightLabel);
+            }
+        }
+        
+        // Initial visualization
+        updateVisualization();
+    </script>
+</body>
+</html> 
